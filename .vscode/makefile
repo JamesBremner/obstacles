@@ -1,11 +1,11 @@
 #source file search paths
-VPATH = ./src 
+VPATH = ./src ../autocell/src
 
 	# compiler include search paths
 INCS = -I./include \
 	-I../ravencode/pub/src \
 	-I../raven-set \
-	-I../boost/boost1_78 
+	-I../autocell/src
 
 LIBS = \
 	-lgdiplus -lgdi32 -lcomdlg32 -lstdc++fs \
@@ -26,7 +26,7 @@ CCflags = -std=c++17 $(OPT) -D_mingw_
 
 # sources
 OBJ_starter = \
-	$(ODIR)/main.o 
+	$(ODIR)/main.o $(ODIR)/autocell.o 
 
 ### COMPILE
 
@@ -36,7 +36,7 @@ $(ODIR)/%.o: %.cpp
 
 starter: $(OBJ_starter)
 	g++ $(OPT) \
-	-o bin/starter.exe $^  \
+	-o bin/obstacle.exe $^  \
 	$(static_link_flags) $(LIBS)
 
 .PHONY: clean
