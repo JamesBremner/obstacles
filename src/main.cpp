@@ -8,7 +8,6 @@
 #include "cStarterGUI.h"
 #include <autocell.h>
 
-
 /// @brief 2D point
 class cxy
 {
@@ -65,32 +64,39 @@ double cxy::dis2toline(
 }
 
 /// @brief 2D grid cell that can contain obstacles
+
 class cOCell : public cell::cCell
 {
 public:
     cOCell()
-        : cell::cCell(), myType(0)
+        : cell::cCell(),
+          myType(0),
+          fvisited(false)
     {
     }
     /** contents type
      * 0 empty
      * 1 obstacle
      * 2 node that must be visited
-    */
+     */
     int myType;
+
+    bool fvisited;
 };
 
 class cObstacle
 {
-    int nx, ny;     ///< grid size
-    int view;       ///< view radius
-    cell::cAutomaton<cOCell> *A;    ///< 2D grid
-    std::vector<cOCell *> vN;       ///< nodes to be included in path
-    std::vector<std::pair<cOCell *, cOCell *>> vL;  ///< links between nodes
+    int nx, ny;                                    ///< grid size
+    int view;                                      ///< view radius
+    cell::cAutomaton<cOCell> *A;                   ///< 2D grid
+    std::vector<cOCell *> vN;                      ///< nodes to be included in path
+    std::vector<std::pair<cOCell *, cOCell *>> vL; ///< links between nodes
+    std::vector<std::pair<cOCell *, cOCell *>> vPath;
+    std::vector<std::pair<cOCell *, cOCell *>> mySpanningTree;
 
 public:
     /// @brief read layout of obstacles from file
-    /// @param fname 
+    /// @param fname
     void read(const std::string &fname);
 
     /// @brief construct nodes to be visited
@@ -99,18 +105,18 @@ public:
     /// @brief connect nodes, avoiding obstacles
     void connect();
 
-    /// @brief output nodeas and links
+    /// @brief output nodes and links
     void output();
 
     /// @brief display for point at w,h
-    /// @param w 
-    /// @param h 
+    /// @param w
+    /// @param h
     /// @return display
     std::string draw(int w, int h) const;
 
     /// @brief get grid dimensions
-    /// @param w 
-    /// @param h 
+    /// @param w
+    /// @param h
     void size(int &w, int &h) const
     {
         w = nx;
@@ -118,27 +124,66 @@ public:
     }
 
     /// @brief get links
-    /// @return 
+    /// @return
     std::vector<std::pair<cOCell *, cOCell *>> links()
     {
         return vL;
     }
 
     /// @brief get grid
-    /// @return 
+    /// @return
     cell::cAutomaton<cOCell> *grid()
     {
         return A;
     }
 
-    /// @brief Is link blocked by obdtacle
-    /// @param x1 
-    /// @param y1 
-    /// @param x2 
-    /// @param y2 
-    /// @return 
+    /// @brief Is link blocked by obstacle
+    /// @param x1,y1 col,row indeices of
+    /// @param y1
+    /// @param x2
+    /// @param y2
+    /// @return
     bool isBlocked(int x1, int y1, int x2, int y2);
+
+    void readPath();
+    std::vector<std::pair<cOCell *, cOCell *>> path()
+    {
+        return vPath;
+    }
+    std::vector<std::pair<cOCell *, cOCell *>> spanningTree_get()
+    {
+        return mySpanningTree;
+    }
+    void spanningTree();
+    std::vector<cOCell *> adjacent(cOCell *n);
+
+private:
+    double linkCost(const std::pair<cOCell *, cOCell *> &l);
 };
+
+void cObstacle::readPath()
+{
+    // std::ifstream ifs("path.txt");
+    // if (!ifs.is_open())
+    //     exit(1);
+    // int id1, id2;
+    // std::string arrow;
+    // while (ifs.good())
+    // {
+    //     ifs >> id1 >> arrow >> id2;
+    //     vPath.push_back(
+    //         std::make_pair(
+    //             A->cell(id1), A->cell(id2)));
+    // }
+
+    std::vector<int> pid = {
+        47, 52, 57, 157, 257, 357, 152, 252, 147, 247, 347, 352, 42, 142, 242, 342};
+
+    for (int k = 1; k < pid.size(); k++)
+        vPath.push_back(
+            std::make_pair(
+                A->cell(pid[k - 1]), A->cell(pid[k])));
+}
 
 void cObstacle::read(const std::string &fname)
 {
@@ -209,107 +254,222 @@ void cObstacle::connect()
             vL.push_back(std::make_pair(n1, n2));
         }
 }
-    void cObstacle::output()
-    {
-        for (auto n : vN)
-        {
-            std::cout << "n " << n->ID() << "\n";
-        }
-        for (auto l : vL)
-        {
-            if (l.first->ID() > l.second->ID())
-                continue;
-            int w, h;
-            A->coords(w, h, l.first);
-            cxy n1(w, h);
-            A->coords(w, h, l.second);
-            cxy n2(w, h);
 
-            std::cout << "l " << l.first->ID()
-                      << " " << l.second->ID()
-                      << " " << sqrt(n1.dist2(n2))
+double cObstacle::linkCost(const std::pair<cOCell *, cOCell *> &l)
+{
+    int w, h;
+    A->coords(w, h, l.first);
+    cxy n1(w, h);
+    A->coords(w, h, l.second);
+    cxy n2(w, h);
+    double dbg = n1.dist2(n2);
+    return sqrt(n1.dist2(n2));
+}
+void cObstacle::output()
+{
+    for (auto n : vN)
+    {
+        std::cout << "n " << n->ID() << "\n";
+    }
+    for (auto l : vL)
+    {
+        if (l.first->ID() > l.second->ID())
+            continue;
+        int w, h;
+        A->coords(w, h, l.first);
+        cxy n1(w, h);
+        A->coords(w, h, l.second);
+        cxy n2(w, h);
+
+        std::cout << "l " << l.first->ID()
+                  << " " << l.second->ID()
+                  << " " << sqrt(n1.dist2(n2))
+                  << "\n";
+    }
+    for (int kn1 = 0; kn1 < vN.size(); kn1++)
+        for (int kn2 = kn1 + 1; kn2 < vN.size(); kn2++)
+        {
+            bool found = false;
+            for (auto &l : vL)
+                if ((l.first == vN[kn1] && l.second == vN[kn2]) || (l.first == vN[kn2] && l.second == vN[kn1]))
+                {
+                    found = true;
+                    break;
+                }
+            if (found)
+                continue;
+
+            int w1, h1, w2, h2;
+            A->coords(w1, h1, vN[kn1]);
+            A->coords(w2, h2, vN[kn2]);
+            if (isBlocked(w1, h1, w2, h2))
+                continue;
+
+            // missing link
+
+            std::cout << "l " << vN[kn1]->ID()
+                      << " " << vN[kn2]->ID()
+                      << " " << nx * ny
                       << "\n";
         }
-    }
+}
 
-    void cObstacle::unobstructedPoints()
-    {
-        int W, H;
-        A->size(W, H);
-        for (int h = view; h < H - view + 1; h += 2 * view + 1)
-            for (int w = view; w <= W - view + 1; w += 2 * view + 1)
-            {
-                cOCell *c = A->cell(w, h);
-                c->myType = 2;
-                vN.push_back(c);
-            }
-    }
-
-    std::string cObstacle::draw(int w, int h) const
-    {
-        switch (A->cell(w, h)->myType)
+void cObstacle::unobstructedPoints()
+{
+    int W, H;
+    A->size(W, H);
+    for (int h = view; h < H - view + 1; h += 2 * view + 1)
+        for (int w = view; w <= W - view + 1; w += 2 * view + 1)
         {
-        case 0:
-        default:
-            return " ";
-        case 1:
-            return "X";
-        case 2:
-            return " ";
+            cOCell *c = A->cell(w, h);
+            c->myType = 2;
+            vN.push_back(c);
         }
-    }
+}
 
-    class cGUI : public cStarterGUI
+std::string cObstacle::draw(int w, int h) const
+{
+    switch (A->cell(w, h)->myType)
     {
-    public:
-        cGUI()
-            : cStarterGUI(
-                  "Starter",
-                  {50, 50, 1000, 500}),
-              lb(wex::maker::make<wex::label>(fm))
+    case 0:
+    default:
+        return "";
+    case 1:
+        return "X";
+    case 2:
+        return std::to_string(A->cell(w, h)->ID());
+    }
+}
+std::vector<cOCell *> cObstacle::adjacent(cOCell *n)
+{
+    std::vector<cOCell *> ret;
+    for (auto &l : vL)
+    {
+        if (l.first == n)
+            ret.push_back(l.second);
+        if (l.second == n)
+            ret.push_back(l.first);
+    }
+    return ret;
+}
+void cObstacle::spanningTree()
+{
+
+    // add initial arbitrary link
+    auto v = vN[0];
+    auto w = *adjacent(v).begin();
+    mySpanningTree.push_back(std::make_pair(v, w));
+    v->fvisited = true;
+    w->fvisited = true;
+
+    // while nodes remain outside of span
+    while (1)
+    {
+        // int v;      // node in span
+        // int w = -1; // node not yet in span
+        int min_cost = INT_MAX;
+        std::pair<cOCell *, cOCell *> bestLink;
+
+        // loop over nodes in span
+        for (int kv = 0; kv < vN.size(); kv++)
         {
-            myObstacle.read("data.txt");
-            myObstacle.unobstructedPoints();
-            myObstacle.connect();
-            myObstacle.output();
+            if (!vN[kv]->fvisited)
+                continue;
+            v = vN[kv];
 
-            fm.events().draw(
-                [&](PAINTSTRUCT &ps)
+            // loop over nodes not in span
+            for (int kw = 0; kw < vN.size(); kw++)
+            {
+                if (vN[kw]->fvisited)
+                    continue;
+                w = vN[kw];
+
+                // check for allowed connection
+                for (auto &l : vL)
                 {
-                    wex::shapes S(ps);
-                    int W, H;
-                    myObstacle.size(W, H);
-                    for (int h = 0; h < H; h++)
-                        for (int w = 0; w < W; w++)
+                    if ((l.first == v && l.second == w) || (l.first == w && l.second == v))
+                    {
+                        // check for cheapest
+                        if (linkCost(l) < min_cost)
+                        {
+                            min_cost = linkCost(l);
+                            bestLink = l;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        if (min_cost == INT_MAX)
+            break;
+        mySpanningTree.push_back( bestLink );
+        bestLink.first->fvisited = true;
+        bestLink.second->fvisited = true;
+    }
+}
 
+class cGUI : public cStarterGUI
+{
+public:
+    cGUI()
+        : cStarterGUI(
+              "Starter",
+              {50, 50, 1000, 500}),
+          lb(wex::maker::make<wex::label>(fm))
+    {
+        myObstacle.read("data.txt");
+        myObstacle.unobstructedPoints();
+        myObstacle.connect();
+        myObstacle.spanningTree();
+
+        fm.events().draw(
+            [&](PAINTSTRUCT &ps)
+            {
+                wex::shapes S(ps);
+                int W, H;
+                myObstacle.size(W, H);
+                for (int h = 0; h < H; h++)
+                    for (int w = 0; w < W; w++)
+                        if (!myObstacle.draw(w, h).empty())
                             S.text(
                                 myObstacle.draw(w, h),
                                 {w * 20, h * 20});
-                    auto grid = myObstacle.grid();
-                    for (auto &l : myObstacle.links())
-                    {
-                        int w, h, w2, h2;
-                        grid->coords(
-                            w, h, l.first);
-                        // std::cout << w << " " << h << " -> ";
-                        grid->coords(
-                            w2, h2, l.second);
-                        // std::cout << w2 << " " << h2 << "\n";
-                        S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
-                    }
-                });
+                auto grid = myObstacle.grid();
+                for (auto &l : myObstacle.links())
+                {
+                    int w, h, w2, h2;
+                    grid->coords(
+                        w, h, l.first);
+                    // std::cout << w << " " << h << " -> ";
+                    grid->coords(
+                        w2, h2, l.second);
+                    // std::cout << w2 << " " << h2 << "\n";
+                    S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
+                }
+                S.color(0x0000FF);
+                S.penThick(2);
+                for (auto &pl : myObstacle.spanningTree_get())
+                {
+                    int w, h, w2, h2;
+                    grid->coords(
+                        w, h, pl.first);
+                    grid->coords(
+                        w2, h2, pl.second);
+                    S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
+                }
+            });
 
-            show();
-            run();
-        }
-
-    private:
-        wex::label &lb;
-        cObstacle myObstacle;
-    };
-
-    main()
-    {
-        cGUI theGUI;
-        return 0;
+        show();
+        run();
     }
+
+private:
+    wex::label &lb;
+    cObstacle myObstacle;
+};
+
+main()
+{
+    cGUI theGUI;
+    return 0;
+}
