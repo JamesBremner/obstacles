@@ -3,6 +3,7 @@
 #include <sstream>
 #include <iostream>
 #include <vector>
+#include <stack>
 #include <algorithm>
 #include <wex.h>
 #include "cStarterGUI.h"
@@ -84,15 +85,19 @@ public:
     bool fvisited;
 };
 
+typedef std::tuple<cOCell *, cOCell *, double> link_t;
+typedef std::vector<link_t> vlink_t;
+
 class cObstacle
 {
-    int nx, ny;                                    ///< grid size
-    int view;                                      ///< view radius
-    cell::cAutomaton<cOCell> *A;                   ///< 2D grid
-    std::vector<cOCell *> vN;                      ///< nodes to be included in path
-    std::vector<std::pair<cOCell *, cOCell *>> vL; ///< links between nodes
-    std::vector<std::pair<cOCell *, cOCell *>> vPath;
-    std::vector<std::pair<cOCell *, cOCell *>> mySpanningTree;
+
+    int nx, ny;                  ///< grid size
+    int view;                    ///< view radius
+    cell::cAutomaton<cOCell> *A; ///< 2D grid
+    std::vector<cOCell *> vN;    ///< nodes to be included in path
+    vlink_t vL;                  ///< links between nodes
+    vlink_t vPath;
+    vlink_t mySpanningTree;
 
 public:
     /// @brief read layout of obstacles from file
@@ -125,7 +130,7 @@ public:
 
     /// @brief get links
     /// @return
-    std::vector<std::pair<cOCell *, cOCell *>> links()
+    vlink_t links()
     {
         return vL;
     }
@@ -146,19 +151,52 @@ public:
     bool isBlocked(int x1, int y1, int x2, int y2);
 
     void readPath();
-    std::vector<std::pair<cOCell *, cOCell *>> path()
+
+    vlink_t path()
     {
         return vPath;
     }
-    std::vector<std::pair<cOCell *, cOCell *>> spanningTree_get()
+    /// @brief Find tree that connects all required nodes
+    void spanningTree();
+
+    vlink_t spanningTree_get()
     {
         return mySpanningTree;
     }
-    void spanningTree();
-    std::vector<cOCell *> adjacent(cOCell *n);
+
+    /// @brief Find practical tour visiting all required nodes
+    void tourSpanningTree();
 
 private:
-    double linkCost(const std::pair<cOCell *, cOCell *> &l);
+    /// @brief calculate and set link cost squared
+    /// @param l
+    /// @return
+    double linkCost(link_t &l);
+
+    /// @brief adjacent cells, reachable with 1 hop
+    /// @param n cell
+    /// @param vlink allowed links
+    /// @return vector of called adjacent to n
+    std::vector<cOCell *> adjacent(
+        cOCell *n,
+        const vlink_t &vlink);
+
+    cOCell *closestUnvisitedConnected(
+        cOCell *v, vlink_t &vLink);
+
+    void tour(vlink_t &connectedLeaves);
+
+    /// @brief Ffind closest unvisited node
+    /// @param start start node
+    /// @param vlink allowed links
+    /// @param path path from start to nearest
+    /// @return pointer to nearest unvisited node
+    ///
+    /// Uses Dijsktra alorithm
+    cOCell *Dijsktra(
+        cOCell *start,
+        vlink_t &vlink,
+        std::vector<cOCell *> &path);
 };
 
 void cObstacle::readPath()
@@ -176,13 +214,13 @@ void cObstacle::readPath()
     //             A->cell(id1), A->cell(id2)));
     // }
 
-    std::vector<int> pid = {
-        47, 52, 57, 157, 257, 357, 152, 252, 147, 247, 347, 352, 42, 142, 242, 342};
+    // std::vector<int> pid = {
+    //     47, 52, 57, 157, 257, 357, 152, 252, 147, 247, 347, 352, 42, 142, 242, 342};
 
-    for (int k = 1; k < pid.size(); k++)
-        vPath.push_back(
-            std::make_pair(
-                A->cell(pid[k - 1]), A->cell(pid[k])));
+    // for (int k = 1; k < pid.size(); k++)
+    //     vPath.push_back(
+    //         std::make_pair(
+    //             A->cell(pid[k - 1]), A->cell(pid[k])));
 }
 
 void cObstacle::read(const std::string &fname)
@@ -251,68 +289,69 @@ void cObstacle::connect()
                 continue;
 
             // OK to connect
-            vL.push_back(std::make_pair(n1, n2));
+            vL.push_back(std::make_tuple(n1, n2, d2));
         }
 }
 
-double cObstacle::linkCost(const std::pair<cOCell *, cOCell *> &l)
+double cObstacle::linkCost(link_t &l)
 {
     int w, h;
-    A->coords(w, h, l.first);
+    A->coords(w, h, std::get<0>(l));
     cxy n1(w, h);
-    A->coords(w, h, l.second);
+    A->coords(w, h, std::get<1>(l));
     cxy n2(w, h);
-    double dbg = n1.dist2(n2);
-    return sqrt(n1.dist2(n2));
+    std::get<2>(l) = n1.dist2(n2);
+    return std::get<2>(l);
 }
-void cObstacle::output()
-{
-    for (auto n : vN)
-    {
-        std::cout << "n " << n->ID() << "\n";
-    }
-    for (auto l : vL)
-    {
-        if (l.first->ID() > l.second->ID())
-            continue;
-        int w, h;
-        A->coords(w, h, l.first);
-        cxy n1(w, h);
-        A->coords(w, h, l.second);
-        cxy n2(w, h);
 
-        std::cout << "l " << l.first->ID()
-                  << " " << l.second->ID()
-                  << " " << sqrt(n1.dist2(n2))
-                  << "\n";
-    }
-    for (int kn1 = 0; kn1 < vN.size(); kn1++)
-        for (int kn2 = kn1 + 1; kn2 < vN.size(); kn2++)
-        {
-            bool found = false;
-            for (auto &l : vL)
-                if ((l.first == vN[kn1] && l.second == vN[kn2]) || (l.first == vN[kn2] && l.second == vN[kn1]))
-                {
-                    found = true;
-                    break;
-                }
-            if (found)
-                continue;
+// void cObstacle::output()
+// {
+//     for (auto n : vN)
+//     {
+//         std::cout << "n " << n->ID() << "\n";
+//     }
+//     for (auto l : vL)
+//     {
+//         if (std::get<0>(l)->ID() > std::get<1>(l)->ID())
+//             continue;
+//         // int w, h;
+//         // A->coords(w, h, l.first);
+//         // cxy n1(w, h);
+//         // A->coords(w, h, l.second);
+//         // cxy n2(w, h);
 
-            int w1, h1, w2, h2;
-            A->coords(w1, h1, vN[kn1]);
-            A->coords(w2, h2, vN[kn2]);
-            if (isBlocked(w1, h1, w2, h2))
-                continue;
+//         std::cout << "l " << std::get<0>(l)->ID()
+//                   << " " << std::get<1>(l)->ID()
+//                   << " " << std::get<2>(l)
+//                   << "\n";
+//     }
+//     for (int kn1 = 0; kn1 < vN.size(); kn1++)
+//         for (int kn2 = kn1 + 1; kn2 < vN.size(); kn2++)
+//         {
+//             bool found = false;
+//             for (auto &l : vL)
+//                 if ((l.first == vN[kn1] && l.second == vN[kn2]) || (l.first == vN[kn2] && l.second == vN[kn1]))
+//                 {
+//                     found = true;
+//                     break;
+//                 }
+//             if (found)
+//                 continue;
 
-            // missing link
+//             int w1, h1, w2, h2;
+//             A->coords(w1, h1, vN[kn1]);
+//             A->coords(w2, h2, vN[kn2]);
+//             if (isBlocked(w1, h1, w2, h2))
+//                 continue;
 
-            std::cout << "l " << vN[kn1]->ID()
-                      << " " << vN[kn2]->ID()
-                      << " " << nx * ny
-                      << "\n";
-        }
-}
+//             // missing link
+
+//             std::cout << "l " << vN[kn1]->ID()
+//                       << " " << vN[kn2]->ID()
+//                       << " " << nx * ny
+//                       << "\n";
+//         }
+// }
 
 void cObstacle::unobstructedPoints()
 {
@@ -340,25 +379,52 @@ std::string cObstacle::draw(int w, int h) const
         return std::to_string(A->cell(w, h)->ID());
     }
 }
-std::vector<cOCell *> cObstacle::adjacent(cOCell *n)
+std::vector<cOCell *> cObstacle::adjacent(
+    cOCell *n,
+    const vlink_t &vLink)
 {
     std::vector<cOCell *> ret;
-    for (auto &l : vL)
+    for (auto &l : vLink)
     {
-        if (l.first == n)
-            ret.push_back(l.second);
-        if (l.second == n)
-            ret.push_back(l.first);
+        if (std::get<0>(l) == n)
+            ret.push_back(std::get<1>(l));
+        if (std::get<1>(l) == n)
+            ret.push_back(std::get<0>(l));
+    }
+    return ret;
+}
+
+cOCell *cObstacle::closestUnvisitedConnected(
+    cOCell *v, vlink_t &vLink)
+{
+    double bestDist = INT_MAX;
+    cOCell *ret = 0;
+    cOCell *w;
+    for (auto &l : vLink)
+    {
+        w = 0;
+        if (std::get<0>(l) == v)
+            w = std::get<1>(l);
+        if (std::get<1>(l) == v)
+            w = std::get<0>(l);
+        if (!w)
+            continue;
+        if (w->fvisited)
+            continue;
+        if (linkCost(l) < bestDist)
+        {
+            bestDist = std::get<2>(l);
+            ret = w;
+        }
     }
     return ret;
 }
 void cObstacle::spanningTree()
 {
-
     // add initial arbitrary link
     auto v = vN[0];
-    auto w = *adjacent(v).begin();
-    mySpanningTree.push_back(std::make_pair(v, w));
+    auto w = *adjacent(v, vL).begin();
+    mySpanningTree.push_back(std::make_tuple(v, w, 1));
     v->fvisited = true;
     w->fvisited = true;
 
@@ -368,7 +434,7 @@ void cObstacle::spanningTree()
         // int v;      // node in span
         // int w = -1; // node not yet in span
         int min_cost = INT_MAX;
-        std::pair<cOCell *, cOCell *> bestLink;
+        link_t bestLink;
 
         // loop over nodes in span
         for (int kv = 0; kv < vN.size(); kv++)
@@ -387,7 +453,7 @@ void cObstacle::spanningTree()
                 // check for allowed connection
                 for (auto &l : vL)
                 {
-                    if ((l.first == v && l.second == w) || (l.first == w && l.second == v))
+                    if ((std::get<0>(l) == v && std::get<1>(l) == w) || (std::get<0>(l) == w && std::get<1>(l) == v))
                     {
                         // check for cheapest
                         if (linkCost(l) < min_cost)
@@ -402,10 +468,207 @@ void cObstacle::spanningTree()
         }
         if (min_cost == INT_MAX)
             break;
-        mySpanningTree.push_back( bestLink );
-        bestLink.first->fvisited = true;
-        bestLink.second->fvisited = true;
+        mySpanningTree.push_back(bestLink);
+        std::get<0>(bestLink)->fvisited = true;
+        std::get<1>(bestLink)->fvisited = true;
     }
+}
+
+void cObstacle::tourSpanningTree()
+{
+    auto connectedLeaves = mySpanningTree;
+    std::vector<cOCell *> leaves;
+    for (auto v : vN)
+    {
+        int countSpanningTreeConnections = 0;
+        for (auto &l : mySpanningTree)
+        {
+            if (std::get<0>(l) == v || std::get<1>(l) == v)
+                countSpanningTreeConnections++;
+        }
+        if (countSpanningTreeConnections == 1)
+            leaves.push_back(v);
+    }
+    for (int kv = 0; kv < leaves.size(); kv++)
+        for (int kw = 0; kw < leaves.size(); kw++)
+        {
+            // no self cycles
+            if (kv == kw)
+                continue;
+
+            // check for unblocked connection
+            auto va = adjacent(leaves[kv], vL);
+            if (std::find(va.begin(), va.end(), leaves[kw]) == va.end())
+                continue;
+
+            link_t l =
+                std::make_tuple(
+                    leaves[kv],
+                    leaves[kw],
+                    0);
+            linkCost(l);
+            connectedLeaves.push_back(l);
+        }
+    tour(connectedLeaves);
+}
+
+void cObstacle::tour(vlink_t &connectedLeaves)
+{
+    vPath.clear();
+    for (auto n : vN)
+        n->fvisited = false;
+
+    link_t best_link;
+
+    auto v = std::get<0>(vL[0]);
+    std::cout << v->ID() << " ";
+    v->fvisited = true;
+
+    while (1)
+    {
+        while (1)
+        {
+            while (1)
+            {
+                auto w = closestUnvisitedConnected(v, mySpanningTree);
+                if (!w)
+                    break;
+
+                vPath.push_back(std::make_tuple(v, w, 0));
+                w->fvisited = true;
+                std::cout << w->ID() << " ";
+                v = w;
+            }
+
+            auto w = closestUnvisitedConnected(v, connectedLeaves);
+            if (!w)
+                break;
+
+            vPath.push_back(std::make_tuple(v, w, 0));
+            w->fvisited = true;
+            std::cout << w->ID() << " ";
+            v = w;
+        }
+
+        std::vector<cOCell *> jump_path;
+        auto w = Dijsktra(v, vL, jump_path);
+        if (!w)
+            break;
+
+        for (auto p : jump_path)
+        {
+            vPath.push_back(std::make_tuple(v, p, 0));
+            std::cout << p->ID() << " ";
+            v = p;
+        }
+
+        v = w;
+
+        while (1)
+        {
+            auto w = closestUnvisitedConnected(v, mySpanningTree);
+            if (!w)
+                break;
+
+            vPath.push_back(std::make_tuple(v, w, 0));
+            w->fvisited = true;
+            std::cout << w->ID() << " ";
+            v = w;
+        }
+        break;
+    }
+}
+
+cOCell *cObstacle::Dijsktra(
+    cOCell *startp,
+    vlink_t &vlink,
+    std::vector<cOCell *> &path)
+{
+    // shortest distance from start to each node
+    std::vector<double> dist(vN.size(), INT_MAX);
+
+    // previous node on shortest path to eachj node
+    std::vector<int> pred(vN.size(), -1);
+
+    std::vector<bool> sptSet(vN.size(), false); // sptSet[i] will be true if vertex i is included in shortest
+    // path tree or shortest distance from src to i is finalized
+
+    int startIdx = std::distance(
+        vN.begin(),
+        std::find(vN.begin(), vN.end(),
+                  startp));
+
+    // Distance of source vertex from itself is always 0
+    dist[startIdx] = 0;
+    pred[startIdx] = 0;
+
+    // Find shortest path for all vertices
+    for (int count = 0; count < vN.size() - 1; count++)
+    {
+        // Pick the minimum distance vertex from the set of vertices not
+        // yet processed. u is always equal to src in the first iteration.
+        int min = INT_MAX, uidx;
+        for (int vidx = 0; vidx < vN.size(); vidx++)
+            if (sptSet[vidx] == false && dist[vidx] <= min)
+            {
+                min = dist[vidx];
+                uidx = vidx;
+            }
+        if (min == INT_MAX)
+        {
+            // no more nodes connected to start
+            break;
+        }
+
+        // Mark the picked vertex as processed
+        sptSet[uidx] = true;
+
+        // Update dist value of the adjacent vertices of the picked vertex.
+        for (auto vp : adjacent(vN[uidx], vL))
+        {
+            int vidx = std::distance(
+                vN.begin(),
+                std::find(vN.begin(), vN.end(),
+                          vp));
+            if (sptSet[vidx])
+                continue; // already processed
+
+            // Update dist[v] only if total weight of path from src to  v through u is
+            // smaller than current value of dist[v]
+            link_t l = std::make_tuple(vN[uidx], vN[vidx], 0);
+            double cost = linkCost(l);
+            if (dist[uidx] + cost < dist[vidx])
+            {
+                dist[vidx] = dist[uidx] + cost;
+                pred[vidx] = uidx;
+            }
+        }
+    }
+    double bestDist = INT_MAX;
+    int best_index;
+    cOCell *best = 0;
+    for (int i = 0; i < dist.size(); i++)
+    {
+        if (vN[i]->fvisited)
+            continue;
+        if (dist[i] < bestDist)
+        {
+            best = vN[i];
+            bestDist = dist[i];
+            best_index = i;
+        }
+    }
+    path.push_back(best);
+    int i = best_index;
+    while (1)
+    {
+        i = pred[i];
+        path.push_back(vN[i]);
+        if (i = startIdx)
+            break;
+    }
+    std::reverse(path.begin(), path.end());
+    return best;
 }
 
 class cGUI : public cStarterGUI
@@ -421,6 +684,7 @@ public:
         myObstacle.unobstructedPoints();
         myObstacle.connect();
         myObstacle.spanningTree();
+        myObstacle.tourSpanningTree();
 
         fm.events().draw(
             [&](PAINTSTRUCT &ps)
@@ -435,28 +699,45 @@ public:
                                 myObstacle.draw(w, h),
                                 {w * 20, h * 20});
                 auto grid = myObstacle.grid();
-                for (auto &l : myObstacle.links())
+                // for (auto &l : myObstacle.links())
+                // {
+                //     int w, h, w2, h2;
+                //     grid->coords(
+                //         w, h, std::get<0>(l));
+                //     // std::cout << w << " " << h << " -> ";
+                //     grid->coords(
+                //         w2, h2, std::get<1>(l));
+                //     // std::cout << w2 << " " << h2 << "\n";
+                //     S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
+                // }
+                // S.color(0x0000FF);
+                // S.penThick(2);
+                // for (auto &pl : myObstacle.spanningTree_get())
+                // {
+                //     int w, h, w2, h2;
+                //     grid->coords(
+                //         w, h, std::get<0>(pl));
+                //     grid->coords(
+                //         w2, h2, std::get<1>(pl));
+                //     S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
+                // }
+                S.color(0xFF0000);
+                S.penThick(1);
+                std::stringstream sspath;
+                sspath << std::get<0>(myObstacle.path()[0])->ID();
+                for (auto &pl : myObstacle.path())
                 {
+                    auto n1 = std::get<0>(pl);
+                    auto n2 = std::get<1>(pl);
                     int w, h, w2, h2;
                     grid->coords(
-                        w, h, l.first);
-                    // std::cout << w << " " << h << " -> ";
+                        w, h, n1);
                     grid->coords(
-                        w2, h2, l.second);
-                    // std::cout << w2 << " " << h2 << "\n";
+                        w2, h2, n2);
                     S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
+                    sspath << " -> " << n2->ID();
                 }
-                S.color(0x0000FF);
-                S.penThick(2);
-                for (auto &pl : myObstacle.spanningTree_get())
-                {
-                    int w, h, w2, h2;
-                    grid->coords(
-                        w, h, pl.first);
-                    grid->coords(
-                        w2, h2, pl.second);
-                    S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
-                }
+                S.text(sspath.str(), {20, H * 20});
             });
 
         show();
