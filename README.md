@@ -1,4 +1,7 @@
 # obstacles
-Find path around obstacles
 
-https://stackoverflow.com/q/74603811/16582
+Find path around obstacles at specified locations ( e.g. furniture in a room )
+
+![image](https://user-images.githubusercontent.com/2046227/205959088-e1c35840-4f1b-4dd2-aee5-be896d8e9573.png)
+
+Find path between regularly spaced obstacles ( e.g. crops in a field https://ravenspoint.wordpress.com/2020/07/16/ferrero-rocher-trees-computational-geometry )
