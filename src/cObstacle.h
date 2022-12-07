@@ -41,6 +41,8 @@ public:
     : myView( -999 )
     {}
 
+    void clear();
+
     /// @brief set grid size
     /// @param x 
     /// @param y 
@@ -65,9 +67,6 @@ public:
 
     /// @brief connect nodes, avoiding obstacles
     void connect();
-
-    /// @brief output nodes and links
-    void output();
 
     /// @brief display for point at w,h
     /// @param w
@@ -140,17 +139,21 @@ private:
 
     void tour(vlink_t &connectedLeaves);
 
-    /// @brief Ffind closest unvisited node
+    /// @brief Find closest unvisited node
     /// @param start start node
     /// @param vlink allowed links
     /// @param path path from start to nearest
     /// @return pointer to nearest unvisited node
     ///
     /// Uses Dijsktra alorithm
-    cOCell *Dijsktra(
+    cOCell *ClosestUnvisited(
         cOCell *start,
         vlink_t &vlink,
         std::vector<cOCell *> &path);
+
+    void pathAdd( 
+        cOCell * node1,
+        cOCell * node2   );
 };
 
     /// @brief read layout of obstacles from file

@@ -65,6 +65,15 @@ double cxy::dis2toline(
     return dist2(closest);
 }
 
+void cObstacle::clear()
+{
+    myView = -999;
+     vN.clear();    ///< nodes to be included in path
+     vL.clear();                  ///< links between nodes
+     vPath.clear();
+     mySpanningTree.clear();
+}
+
 void cObstacle::obstacle(int x, int y)
 {
     if (0 > x || x > nx - 1 || 0 > y || y >> ny - 1)
@@ -83,6 +92,7 @@ void read(
     cObstacle &obs,
     const std::string &fname)
 {
+    obs.clear();
     std::ifstream ifs(fname);
     if (!ifs.is_open())
         throw std::runtime_error(
@@ -369,56 +379,56 @@ void cObstacle::tour(vlink_t &connectedLeaves)
         {
             while (1)
             {
-                auto w = closestUnvisitedConnected(v, mySpanningTree);
+                // travel along spanning tree
+                while (1)
+                {
+                    auto w = closestUnvisitedConnected(v, mySpanningTree);
+                    if (!w)
+                        break;
+
+                    pathAdd(v, w);
+                    v = w;
+                }
+
+                // travel from leaf to an unvisited connected leaf
+                auto w = closestUnvisitedConnected(v, connectedLeaves);
                 if (!w)
                     break;
 
-                vPath.push_back(std::make_tuple(v, w, 0));
-                w->fvisited = true;
-                std::cout << w->ID() << " ";
+                pathAdd(v, w);
                 v = w;
             }
 
-            auto w = closestUnvisitedConnected(v, connectedLeaves);
+            // jump to closest unvisited node in spanning tree
+            std::vector<cOCell *> jump_path;
+            auto w = ClosestUnvisited(v, vL, jump_path);
             if (!w)
-                break;
-
-            vPath.push_back(std::make_tuple(v, w, 0));
-            w->fvisited = true;
-            std::cout << w->ID() << " ";
+            {
+                // all nodes have been visited
+                return;
+            }
+            std::cout << " ( ";
+            for (auto p : jump_path)
+            {
+                pathAdd(v, p);
+                v = p;
+            }
+            std::cout << " ) ";
             v = w;
         }
-
-        std::vector<cOCell *> jump_path;
-        auto w = Dijsktra(v, vL, jump_path);
-        if (!w)
-            break;
-
-        for (auto p : jump_path)
-        {
-            vPath.push_back(std::make_tuple(v, p, 0));
-            std::cout << p->ID() << " ";
-            v = p;
-        }
-
-        v = w;
-
-        while (1)
-        {
-            auto w = closestUnvisitedConnected(v, mySpanningTree);
-            if (!w)
-                break;
-
-            vPath.push_back(std::make_tuple(v, w, 0));
-            w->fvisited = true;
-            std::cout << w->ID() << " ";
-            v = w;
-        }
-        break;
     }
 }
 
-cOCell *cObstacle::Dijsktra(
+void cObstacle::pathAdd(
+    cOCell *node1,
+    cOCell *node2)
+{
+    vPath.push_back(std::make_tuple(node1, node2, 0));
+    node2->fvisited = true;
+    std::cout << node2->ID() << " ";
+}
+
+cOCell *cObstacle::ClosestUnvisited(
     cOCell *startp,
     vlink_t &vlink,
     std::vector<cOCell *> &path)
@@ -497,6 +507,9 @@ cOCell *cObstacle::Dijsktra(
             best_index = i;
         }
     }
+    if( bestDist == INT_MAX )
+        return best;
+
     path.push_back(best);
     int i = best_index;
     while (1)
@@ -536,6 +549,21 @@ void cGUI::ConstructMenu()
                  });
 
     mbar.append("File", mfile);
+
+    wex::menu vfile(fm);
+    vfile.append("Spanning Tree",
+                 [&](const std::string &title)
+                 {
+                     myViewType = eView::span;
+                     fm.update();
+                 });
+    vfile.append("Route",
+                 [&](const std::string &title)
+                 {
+                     myViewType = eView::route;
+                     fm.update();
+                 });
+    mbar.append("View", vfile);
 }
 
 main()

@@ -4,9 +4,9 @@ public:
     /** CTOR
      * @param[in] title will appear in application window title
      * @param[in] vlocation set location and size of appplication window
-     * 
+     *
      * Usage:
-     * 
+     *
      * <pre>
 class appGUI : public cStarterGUI
 {
@@ -41,13 +41,12 @@ public:
             });
     }
     /** Draw nothing
-     * 
+     *
      * An application should over-ride this method
      * to perform any drawing reuired
      */
-    virtual void draw( wex::shapes& S )
+    virtual void draw(wex::shapes &S)
     {
-
     }
     void show()
     {
@@ -62,7 +61,6 @@ protected:
     wex::gui &fm;
 };
 
-
 class cGUI : public cStarterGUI
 {
 public:
@@ -70,16 +68,15 @@ public:
         : cStarterGUI(
               "Obstacles",
               {50, 50, 1000, 500}),
-          lb(wex::maker::make<wex::label>(fm))
+          lb(wex::maker::make<wex::label>(fm)),
+          myViewType(eView::route)
     {
         ConstructMenu();
-
-
 
         fm.events().draw(
             [&](PAINTSTRUCT &ps)
             {
-                if( myObstacle.view() == -999 )
+                if (myObstacle.view() == -999)
                     return;
                 wex::shapes S(ps);
                 int W, H;
@@ -116,34 +113,43 @@ public:
                 //     // std::cout << w2 << " " << h2 << "\n";
                 //     S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
                 // }
-                // S.color(0x0000FF);
-                // S.penThick(2);
-                // for (auto &pl : myObstacle.spanningTree_get())
-                // {
-                //     int w, h, w2, h2;
-                //     grid->coords(
-                //         w, h, std::get<0>(pl));
-                //     grid->coords(
-                //         w2, h2, std::get<1>(pl));
-                //     S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
-                // }
-                S.color(0xFF0000);
-                S.penThick(1);
+
                 std::stringstream sspath;
-                sspath << std::get<0>(myObstacle.path()[0])->ID();
-                for (auto &pl : myObstacle.path())
+                switch (myViewType)
                 {
-                    auto n1 = std::get<0>(pl);
-                    auto n2 = std::get<1>(pl);
-                    int w, h, w2, h2;
-                    grid->coords(
-                        w, h, n1);
-                    grid->coords(
-                        w2, h2, n2);
-                    S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
-                    sspath << " -> " << n2->ID();
+                case eView::route:
+                    S.color(0xFF0000);
+                    S.penThick(1);
+                    sspath << std::get<0>(myObstacle.path()[0])->ID();
+                    for (auto &pl : myObstacle.path())
+                    {
+                        auto n1 = std::get<0>(pl);
+                        auto n2 = std::get<1>(pl);
+                        int w, h, w2, h2;
+                        grid->coords(
+                            w, h, n1);
+                        grid->coords(
+                            w2, h2, n2);
+                        S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
+                        sspath << " -> " << n2->ID();
+                    }
+                    S.text(sspath.str(), {20, H * 20});
+                    break;
+
+                case eView::span:
+                    S.color(0x0000FF);
+                    S.penThick(2);
+                    for (auto &pl : myObstacle.spanningTree_get())
+                    {
+                        int w, h, w2, h2;
+                        grid->coords(
+                            w, h, std::get<0>(pl));
+                        grid->coords(
+                            w2, h2, std::get<1>(pl));
+                        S.line({20 * w, 20 * h, 20 * w2, 20 * h2});
+                    }
+                    break;
                 }
-                S.text(sspath.str(), {20, H * 20});
             });
 
         show();
@@ -153,6 +159,12 @@ public:
 private:
     wex::label &lb;
     cObstacle myObstacle;
+    enum class eView
+    {
+        route,
+        span,
+    };
+    eView myViewType;
 
     void ConstructMenu();
 };
