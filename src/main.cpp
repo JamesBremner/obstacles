@@ -6,72 +6,19 @@
 #include <stack>
 #include <algorithm>
 #include <wex.h>
+#include "cxy.h"
 #include <autocell.h>
 #include "cObstacle.h"
 #include "cGUI.h"
 
-/// @brief 2D point
-class cxy
-{
-
-public:
-    double x;
-    double y;
-
-    cxy()
-    {
-    }
-    cxy(int X, int Y)
-        : x(X), y(Y)
-    {
-    }
-    cxy vect(const cxy &other) const;
-    double dist2(const cxy &other) const;
-
-    double dis2toline(
-        const cxy &line1,
-        const cxy &line2) const;
-};
-
-cxy cxy::vect(const cxy &other) const
-{
-    cxy v;
-    v.x = other.x - x;
-    v.y = other.y - y;
-    return v;
-}
-
-double cxy::dist2(const cxy &other) const
-{
-    cxy v = vect(other);
-    return v.x * v.x + v.y * v.y;
-}
-
-double cxy::dis2toline(
-    const cxy &line1,
-    const cxy &line2) const
-{
-    cxy AB = line1.vect(line2);
-    cxy AP = line1.vect(*this);
-    double lAB = AB.x * AB.x + AB.y * AB.y;
-    double t = (AB.x * AP.x + AB.y * AP.y) / lAB;
-    if (t < 0)
-        t = 0;
-    if (t > 1)
-        t = 1;
-    cxy closest;
-    closest.x = line1.x + t * AB.x;
-    closest.y = line1.y + t * AB.y;
-    return dist2(closest);
-}
-
 void cObstacle::clear()
 {
     myView = -999;
-     vN.clear();    ///< nodes to be included in path
-     vL.clear();                  ///< links between nodes
-     vPath.clear();
-     mySpanningTree.clear();
+    myfrect = true;
+    vN.clear(); ///< nodes to be included in path
+    vL.clear(); ///< links between nodes
+    vPath.clear();
+    mySpanningTree.clear();
 }
 
 void cObstacle::obstacle(int x, int y)
@@ -121,9 +68,24 @@ void read(
     else if (calc.find("farm") != -1)
     {
         int nx, ny;
-        ifs >> nx >> ny;
-        obs.grid(nx, ny);
+        std::string sid;
         obs.view(-1);
+        ifs >> sid;
+        if (sid[0] == 'p')
+            obs.poly();
+        else
+        {
+            ifs >> nx >> ny;
+            obs.grid(nx, ny);
+            return;
+        }
+        ifs >> nx >> ny;
+        obs.polyAdd( cxy(nx, ny) );
+        while (ifs.good()) {
+            ifs >> sid >> nx >> ny;
+            if( sid[0] == 'p' )
+            obs.polyAdd( cxy(nx, ny) );
+        }
     }
     else
         throw std::runtime_error(
@@ -198,7 +160,15 @@ double cObstacle::linkCost(link_t &l)
 void cObstacle::unobstructedPoints()
 {
     int W, H;
-    A->size(W, H);
+
+    if( myfrect )
+        A->size(W, H);
+    else {
+        cxy wh = cxy::enclosingWidthHeight( myPolygon );
+        W = wh.x;
+        H = wh.y;
+        grid( W, H );
+    }
 
     int V;
     if (myView > 0)
@@ -209,6 +179,11 @@ void cObstacle::unobstructedPoints()
     for (int h = V; h < H - V + 1; h += 2 * V + 1)
         for (int w = V; w <= W - V + 1; w += 2 * V + 1)
         {
+            if( ! myfrect ) {
+                cxy p( w, h );
+                if( ! p.isInside( myPolygon ))
+                    continue;
+            }
             cOCell *c = A->cell(w, h);
             c->myType = 2;
             vN.push_back(c);
@@ -507,7 +482,7 @@ cOCell *cObstacle::ClosestUnvisited(
             best_index = i;
         }
     }
-    if( bestDist == INT_MAX )
+    if (bestDist == INT_MAX)
         return best;
 
     path.push_back(best);
