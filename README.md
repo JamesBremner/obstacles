@@ -8,3 +8,4 @@ Find path between regularly spaced obstacles ( e.g. crops in a field https://rav
 
 ![image](https://user-images.githubusercontent.com/2046227/206239656-1496856b-91eb-402a-8e1c-9e1637833a0a.png)
 
+Input is read from a space delimited text file, selected using menu item `File | Calculate`  [Details](https://github.com/JamesBremner/obstacles/wiki/Input-Format)
