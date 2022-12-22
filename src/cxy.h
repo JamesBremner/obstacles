@@ -24,8 +24,8 @@ public:
     double dist2(const cxy &other) const;
 
     /// @brief distance squared from this point to nearest point on line segment
-    /// @param end1 line segemnt endpoint
-    /// @param end2 line segemnt endpoint
+    /// @param end1 line segment endpoint
+    /// @param end2 line segment endpoint
     /// @return 
     double dis2toline(
         const cxy &end1,

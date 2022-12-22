@@ -339,6 +339,7 @@ void cObstacle::tourSpanningTree()
 void cObstacle::tour(vlink_t &connectedLeaves)
 {
     vPath.clear();
+    myCountNodesRevisited = 0;
     for (auto n : vN)
         n->fvisited = false;
 
@@ -399,6 +400,8 @@ void cObstacle::pathAdd(
     cOCell *node2)
 {
     vPath.push_back(std::make_tuple(node1, node2, 0));
+    if( node2->fvisited )
+        myCountNodesRevisited++;
     node2->fvisited = true;
     std::cout << node2->ID() << " ";
 }

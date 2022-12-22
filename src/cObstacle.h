@@ -43,6 +43,7 @@ class cObstacle
     std::vector<cOCell *> vN;    ///< nodes to be included in path
     vlink_t vL;                  ///< links between nodes
     vlink_t vPath;
+    int myCountNodesRevisited;
     vlink_t mySpanningTree;
     bool myfrect;               /// true if grid is rectangular
     std::vector< cxy > myPolygon;   /// polygon vertices for non-rectangular grid
@@ -139,6 +140,10 @@ public:
     vlink_t path()
     {
         return vPath;
+    }
+    int CountNodesRevisited() const
+    {
+        return myCountNodesRevisited;
     }
     /// @brief Find tree that connects all required nodes
     void spanningTree();

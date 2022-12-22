@@ -3,15 +3,15 @@ VPATH = ./src ../autocell/src
 
 	# compiler include search paths
 INCS = -I./include \
-	-I../ravencode/pub/src \
+	-I../windex/include \
 	-I../raven-set \
 	-I../autocell/src
 
 LIBS = \
-	-lgdiplus -lgdi32 -lcomdlg32 -lstdc++fs \
+	-lgdiplus -lgdi32 -lcomdlg32 -lstdc++fs -lComctl32 \
 	-L../boost/boost1_78/lib \
 		-lboost_system-mgw11-mt-x64-1_78 \
-		-lboost_program_options-mgw11-mt-x64-1_78 \
+		# -lboost_program_options-mgw11-mt-x64-1_78 \
 		# -lboost_thread-mgw11-mt-x64-1_7 \
 	#-mwindows
 
@@ -27,7 +27,7 @@ CCflags = -std=c++17 $(OPT) -D_mingw_
 # sources
 OBJ_starter = \
 	$(ODIR)/main.o $(ODIR)/autocell.o \
-	$(ODIR)/cxy.o
+	$(ODIR)/cGUI.o $(ODIR)/cxy.o
 
 ### COMPILE
 
