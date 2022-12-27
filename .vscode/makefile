@@ -26,7 +26,8 @@ CCflags = -std=c++17 $(OPT) -D_mingw_
 
 # sources
 OBJ_starter = \
-	$(ODIR)/main.o $(ODIR)/autocell.o \
+	$(ODIR)/main.o $(ODIR)/cObstacle.o \
+	$(ODIR)/autocell.o \
 	$(ODIR)/cGUI.o $(ODIR)/cxy.o
 
 ### COMPILE

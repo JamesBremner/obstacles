@@ -43,7 +43,7 @@ class cObstacle
     std::vector<cOCell *> vN;    ///< nodes to be included in path
     vlink_t vL;                  ///< links between nodes
     vlink_t vPath;
-    int myCountNodesRevisited;
+    std::vector<cOCell *> myNodesRevisited;
     vlink_t mySpanningTree;
     bool myfrect;               /// true if grid is rectangular
     std::vector< cxy > myPolygon;   /// polygon vertices for non-rectangular grid
@@ -141,9 +141,9 @@ public:
     {
         return vPath;
     }
-    int CountNodesRevisited() const
+    std::vector<cOCell *> NodesRevisited() const
     {
-        return myCountNodesRevisited;
+        return myNodesRevisited;
     }
     /// @brief Find tree that connects all required nodes
     void spanningTree();
@@ -173,7 +173,9 @@ private:
     cOCell *closestUnvisitedConnected(
         cOCell *v, vlink_t &vLink);
 
-    void tour(vlink_t &connectedLeaves);
+    void tour(
+        vlink_t &connectedLeaves,
+        int start = 0 );
 
     /// @brief Find closest unvisited node
     /// @param start start node
