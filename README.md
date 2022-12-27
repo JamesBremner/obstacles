@@ -6,7 +6,7 @@ Find path around obstacles at specified locations ( e.g. furniture in a room )
 
 Find path between regularly spaced obstacles ( e.g. crops in a field https://ravenspoint.wordpress.com/2020/07/16/ferrero-rocher-trees-computational-geometry )
 
-![image](https://user-images.githubusercontent.com/2046227/206239656-1496856b-91eb-402a-8e1c-9e1637833a0a.png)
+![image](https://user-images.githubusercontent.com/2046227/209706623-917352dd-639a-47b2-8f00-89363824809b.png)
 
 Input is read from a space delimited text file, selected using menu item `File | Calculate`  [Details](https://github.com/JamesBremner/obstacles/wiki/Input-Format)
 
