@@ -1,5 +1,5 @@
 #source file search paths
-VPATH = ./src ../autocell/src
+VPATH = ./src ../autocell/src ../raven-set
 
 	# compiler include search paths
 INCS = -I./include \
@@ -9,10 +9,6 @@ INCS = -I./include \
 
 LIBS = \
 	-lgdiplus -lgdi32 -lcomdlg32 -lstdc++fs -lComctl32 \
-	-L../boost/boost1_78/lib \
-		-lboost_system-mgw11-mt-x64-1_78 \
-		# -lboost_program_options-mgw11-mt-x64-1_78 \
-		# -lboost_thread-mgw11-mt-x64-1_7 \
 	#-mwindows
 
 static_link_flags = -static-libstdc++ -static-libgcc -static
@@ -30,6 +26,11 @@ OBJ_starter = \
 	$(ODIR)/autocell.o \
 	$(ODIR)/cGUI.o $(ODIR)/cxy.o
 
+OBJ_test = \
+	$(ODIR)/test.o \
+	$(ODIR)/cObstacle.o $(ODIR)/autocell.o  $(ODIR)/cxy.o \
+	$(ODIR)/cutest.o
+
 ### COMPILE
 
 $(ODIR)/%.o: %.cpp  cObstacle.h cGUI.h
@@ -41,7 +42,15 @@ starter: $(OBJ_starter)
 	-o bin/obstacle.exe $^  \
 	$(static_link_flags) $(LIBS)
 
+test: $(OBJ_test)
+	g++ -o bin/test.exe \
+	$(OPT) $^  \
+	$(static_link_flags) $(LIBS)
+
+
 .PHONY: clean
 clean:
 	del /q .vscode\\obj\\*.o
+
+rebuild: clean starter test
 
