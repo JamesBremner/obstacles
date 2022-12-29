@@ -139,14 +139,14 @@ public:
 
     vlink_t path()
     {
+        if( ! vPath.size() )
+            throw std::runtime_error("No path");
         return vPath;
     }
     std::vector<cOCell *> NodesRevisited() const
     {
         return myNodesRevisited;
     }
-    /// @brief Find tree that connects all required nodes
-    void spanningTree();
 
     vlink_t spanningTree_get()
     {
@@ -175,7 +175,7 @@ private:
 
     void tour(
         vlink_t &connectedLeaves,
-        int start = 0 );
+        cOCell * start );
 
     /// @brief Find closest unvisited node
     /// @param start start node
@@ -195,10 +195,23 @@ private:
     void pathAdd( 
         cOCell * node1,
         cOCell * node2   );
+
+    void findBestPath(
+        std::vector<cOCell *>& leaves,
+        vlink_t& connectedLeaves    );
+
+    /// @brief Find tree that connects all required nodes
+    /// @param start index to root node, defaults to 0
+    void spanningTree( int start = 0 );
 };
 
     /// @brief read layout of obstacles from file
-    /// @param fname
+    /// @param cObstacle instance to read into
+    /// @param fname file name
+    /// Free function
     void read(
         cObstacle& obs,
         const std::string &fname);
+
+
+

@@ -11,15 +11,7 @@
 #include "cObstacle.h"
 #include "cGUI.h"
 
-void cObstacle::clear()
-{
-    myView = -999;
-    myfrect = true;
-    vN.clear(); ///< nodes to be included in path
-    vL.clear(); ///< links between nodes
-    vPath.clear();
-    mySpanningTree.clear();
-}
+
 
 void cObstacle::obstacle(int x, int y)
 {
@@ -157,39 +149,6 @@ double cObstacle::linkCost(link_t &l)
     return std::get<2>(l);
 }
 
-void cObstacle::unobstructedPoints()
-{
-    int W, H;
-
-    if( myfrect )
-        A->size(W, H);
-    else {
-        cxy wh = cxy::enclosingWidthHeight( myPolygon );
-        W = wh.x;
-        H = wh.y;
-        grid( W, H );
-    }
-
-    int V;
-    if (myView > 0)
-        V = myView;
-    else
-        V = 2;
-
-    for (int h = V; h < H - V + 1; h += 2 * V + 1)
-        for (int w = V; w <= W - V + 1; w += 2 * V + 1)
-        {
-            if( ! myfrect ) {
-                cxy p( w, h );
-                if( ! p.isInside( myPolygon ))
-                    continue;
-            }
-            cOCell *c = A->cell(w, h);
-            c->myType = 2;
-            vN.push_back(c);
-        }
-}
-
 std::string cObstacle::draw(int w, int h) const
 {
     switch (A->cell(w, h)->myType)
@@ -243,63 +202,6 @@ cOCell *cObstacle::closestUnvisitedConnected(
     }
     return ret;
 }
-void cObstacle::spanningTree()
-{
-    // add initial arbitrary link
-    auto v = vN[0];
-    auto w = *adjacent(v, vL).begin();
-    mySpanningTree.push_back(std::make_tuple(v, w, 1));
-    v->fvisited = true;
-    w->fvisited = true;
-
-    // while nodes remain outside of span
-    while (1)
-    {
-        // int v;      // node in span
-        // int w = -1; // node not yet in span
-        int min_cost = INT_MAX;
-        link_t bestLink;
-
-        // loop over nodes in span
-        for (int kv = 0; kv < vN.size(); kv++)
-        {
-            if (!vN[kv]->fvisited)
-                continue;
-            v = vN[kv];
-
-            // loop over nodes not in span
-            for (int kw = 0; kw < vN.size(); kw++)
-            {
-                if (vN[kw]->fvisited)
-                    continue;
-                w = vN[kw];
-
-                // check for allowed connection
-                for (auto &l : vL)
-                {
-                    if ((std::get<0>(l) == v && std::get<1>(l) == w) || (std::get<0>(l) == w && std::get<1>(l) == v))
-                    {
-                        // check for cheapest
-                        if (linkCost(l) < min_cost)
-                        {
-                            min_cost = linkCost(l);
-                            bestLink = l;
-                        }
-                        break;
-                    }
-                }
-            }
-        }
-        if (min_cost == INT_MAX)
-            break;
-        mySpanningTree.push_back(bestLink);
-        std::get<0>(bestLink)->fvisited = true;
-        std::get<1>(bestLink)->fvisited = true;
-    }
-}
-
-
-
 
 void cGUI::ConstructMenu()
 {
@@ -315,7 +217,6 @@ void cGUI::ConstructMenu()
                          read(myObstacle, fb.open());
                          myObstacle.unobstructedPoints();
                          myObstacle.connect();
-                         myObstacle.spanningTree();
                          myObstacle.tourSpanningTree();
                          fm.update();
                      }

@@ -5,59 +5,105 @@
 #include <autocell.h>
 #include "cObstacle.h"
 
+void cObstacle::clear()
+{
+    myView = -999;
+    myfrect = true;
+    vN.clear(); ///< nodes to be included in path
+    vL.clear(); ///< links between nodes
+    vPath.clear();
+    myPolygon.clear();
+    mySpanningTree.clear();
+}
+
 void cObstacle::tourSpanningTree()
 {
-    auto connectedLeaves = mySpanningTree;
-    std::vector<cOCell *> leaves;
-    for (auto v : vN)
-    {
-        int countSpanningTreeConnections = 0;
-        for (auto &l : mySpanningTree)
-        {
-            if (std::get<0>(l) == v || std::get<1>(l) == v)
-                countSpanningTreeConnections++;
-        }
-        if (countSpanningTreeConnections == 1)
-            leaves.push_back(v);
-    }
-    for (int kv = 0; kv < leaves.size(); kv++)
-        for (int kw = 0; kw < leaves.size(); kw++)
-        {
-            // no self cycles
-            if (kv == kw)
-                continue;
-
-            // check for unblocked connection
-            auto va = adjacent(leaves[kv], vL);
-            if (std::find(va.begin(), va.end(), leaves[kw]) == va.end())
-                continue;
-
-            link_t l =
-                std::make_tuple(
-                    leaves[kv],
-                    leaves[kw],
-                    0);
-            linkCost(l);
-            connectedLeaves.push_back(l);
-        }
-
     int bestCountRevisited = 1e7;
     vlink_t bestPath;
     std::vector<cOCell *> bestNodesRevisited;
-    int bestStart;
-    for (int start = 0; start < connectedLeaves.size(); start++)
-    // int start = 30;
+    for (int spanstart = 0; spanstart < vN.size(); spanstart++)
+    {
+        spanningTree(spanstart);
+
+        auto connectedLeaves = mySpanningTree;
+        std::vector<cOCell *> leaves;
+        for (auto v : vN)
+        {
+            int countSpanningTreeConnections = 0;
+            for (auto &l : mySpanningTree)
+            {
+                if (std::get<0>(l) == v || std::get<1>(l) == v)
+                    countSpanningTreeConnections++;
+            }
+            if (countSpanningTreeConnections == 1)
+                leaves.push_back(v);
+        }
+        for (int kv = 0; kv < leaves.size(); kv++)
+            for (int kw = 0; kw < leaves.size(); kw++)
+            {
+                // no self cycles
+                if (kv == kw)
+                    continue;
+
+                // check for unblocked connection
+                auto va = adjacent(leaves[kv], vL);
+                if (std::find(va.begin(), va.end(), leaves[kw]) == va.end())
+                    continue;
+
+                link_t l =
+                    std::make_tuple(
+                        leaves[kv],
+                        leaves[kw],
+                        0);
+                linkCost(l);
+                connectedLeaves.push_back(l);
+            }
+
+        // loop over leaf nodes in spanning tree
+        // to find the path starting at a leaf node
+        // that visits every node
+        // with fewest revisits to the same nodes
+        findBestPath(leaves, connectedLeaves);
+
+        if (vPath.size() && (myNodesRevisited.size() < bestCountRevisited))
+        {
+            // found a path with fewer nodes visited multiple times
+            bestCountRevisited = myNodesRevisited.size();
+            bestPath = vPath;
+            bestNodesRevisited = myNodesRevisited;
+            if (!myNodesRevisited.size())
+                break;
+        }
+    }
+    vPath = bestPath;
+    myNodesRevisited = bestNodesRevisited;
+}
+
+void cObstacle::findBestPath(
+    std::vector<cOCell *> &leaves,
+    vlink_t &connectedLeaves)
+{
+    int bestCountRevisited = 1e7;
+    vlink_t bestPath;
+    std::vector<cOCell *> bestNodesRevisited;
+    for (auto start : leaves)
     {
         tour(connectedLeaves, start);
 
         if (myNodesRevisited.size() < bestCountRevisited)
         {
+            // found a path with fewer nodes visited multiple times
             bestCountRevisited = myNodesRevisited.size();
             bestPath = vPath;
             bestNodesRevisited = myNodesRevisited;
-            bestStart = start;
+
             if (!bestCountRevisited)
+            {
+
+                // found a path that does not revisit any nodes
+                // no need to search any further
                 break;
+            }
         }
     }
     vPath = bestPath;
@@ -66,7 +112,7 @@ void cObstacle::tourSpanningTree()
 
 void cObstacle::tour(
     vlink_t &connectedLeaves,
-    int start)
+    cOCell *start)
 {
     vPath.clear();
     myNodesRevisited.clear();
@@ -75,7 +121,8 @@ void cObstacle::tour(
 
     link_t best_link;
 
-    auto v = std::get<0>(vL[start]);
+    // auto v = std::get<0>(vL[start]);
+    auto v = start;
     // std::cout << v->ID() << " ";
     v->fvisited = true;
 
@@ -239,4 +286,100 @@ cOCell *cObstacle::ClosestUnvisited(
     std::reverse(path.begin(), path.end());
 
     return best;
+}
+
+void cObstacle::spanningTree( int start )
+{
+    mySpanningTree.clear();
+    for( auto v : vN )
+        v->fvisited = false;
+
+    // add initial arbitrary link
+    auto v = vN[start];
+    auto w = *adjacent(v, vL).begin();
+    mySpanningTree.push_back(std::make_tuple(v, w, 1));
+    v->fvisited = true;
+    w->fvisited = true;
+
+    // while nodes remain outside of span
+    while (1)
+    {
+        // int v;      // node in span
+        // int w = -1; // node not yet in span
+        int min_cost = INT_MAX;
+        link_t bestLink;
+
+        // loop over nodes in span
+        for (int kv = 0; kv < vN.size(); kv++)
+        {
+            if (!vN[kv]->fvisited)
+                continue;
+            v = vN[kv];
+
+            // loop over nodes not in span
+            for (int kw = 0; kw < vN.size(); kw++)
+            {
+                if (vN[kw]->fvisited)
+                    continue;
+                w = vN[kw];
+
+                // check for allowed connection
+                for (auto &l : vL)
+                {
+                    if ((std::get<0>(l) == v && std::get<1>(l) == w) || (std::get<0>(l) == w && std::get<1>(l) == v))
+                    {
+                        // check for cheapest
+                        if (linkCost(l) < min_cost)
+                        {
+                            min_cost = linkCost(l);
+                            bestLink = l;
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+        if (min_cost == INT_MAX)
+            break;
+        mySpanningTree.push_back(bestLink);
+        std::get<0>(bestLink)->fvisited = true;
+        std::get<1>(bestLink)->fvisited = true;
+    }
+}
+
+
+void cObstacle::unobstructedPoints()
+{
+    int W, H;
+
+    if( myfrect )
+        A->size(W, H);
+    else {
+        cxy wh = cxy::enclosingWidthHeight( myPolygon );
+        W = wh.x;
+        H = wh.y;
+        grid( W, H );
+    }
+
+    int V;
+    if (myView > 0)
+        V = myView;
+    else
+        V = 2;
+
+    for (int h = V; h < H - V + 1; h += 2 * V + 1)
+        for (int w = V; w <= W - V + 1; w += 2 * V + 1)
+        {
+            if( ! myfrect ) {
+                cxy p( w, h );
+                if( ! p.isInside( myPolygon ))
+                    continue;
+            }
+            cOCell *c = A->cell(w, h);
+            c->myType = 2;
+            vN.push_back(c);
+        }
+    if( !vN.size() )
+        throw std::runtime_error(
+            "No unobstructed points"        );
 }
