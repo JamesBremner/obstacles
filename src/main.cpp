@@ -203,47 +203,6 @@ cOCell *cObstacle::closestUnvisitedConnected(
     return ret;
 }
 
-void cGUI::ConstructMenu()
-{
-    wex::menubar mbar(fm);
-    wex::menu mfile(fm);
-    mfile.append("Calculate",
-                 [&](const std::string &title)
-                 {
-                     wex::filebox fb(fm);
-
-                     try
-                     {
-                         read(myObstacle, fb.open());
-                         myObstacle.unobstructedPoints();
-                         myObstacle.connect();
-                         myObstacle.tourSpanningTree();
-                         fm.update();
-                     }
-                     catch (std::runtime_error &e)
-                     {
-                         wex::msgbox m(e.what());
-                         return;
-                     }
-                 });
-
-    mbar.append("File", mfile);
-
-    wex::menu vfile(fm);
-    vfile.append("Spanning Tree",
-                 [&](const std::string &title)
-                 {
-                     myViewType = eView::span;
-                     fm.update();
-                 });
-    vfile.append("Route",
-                 [&](const std::string &title)
-                 {
-                     myViewType = eView::route;
-                     fm.update();
-                 });
-    mbar.append("View", vfile);
-}
 
 main()
 {

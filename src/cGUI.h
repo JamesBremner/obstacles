@@ -64,36 +64,25 @@ protected:
 class cGUI : public cStarterGUI
 {
 public:
-    cGUI()
-        : cStarterGUI(
-              "Obstacles",
-              {50, 50, 1000, 700}),
-          lb(wex::maker::make<wex::label>(fm)),
-          myViewType(eView::route)
-    {
-        ConstructMenu();
-
-        fm.events().draw(
-            [this](PAINTSTRUCT &ps)
-            {
-                draw( ps );
-            });
-
-        show();
-        run();
-    }
+    cGUI();
 
 private:
-    wex::label &lb;
     cObstacle myObstacle;
     enum class eView
     {
         route,
         span,
+        input,
     };
     eView myViewType;
+    std::string myfname;
 
     void ConstructMenu();
 
     void draw(PAINTSTRUCT &ps);
+
+    void drawInput(wex::shapes& S);
+    void drawObstacles(
+        wex::shapes& S,
+        int scale );
 };
