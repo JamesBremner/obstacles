@@ -157,10 +157,11 @@ public:
     void tourSpanningTree();
 
 private:
+
     /// @brief calculate and set link cost squared
     /// @param l
     /// @return
-    double linkCost(link_t &l);
+    double linkCost(link_t &l) const;
 
     /// @brief adjacent cells, reachable with 1 hop
     /// @param n cell
@@ -168,6 +169,15 @@ private:
     /// @return vector of called adjacent to n
     std::vector<cOCell *> adjacent(
         cOCell *n,
+        const vlink_t &vlink);
+
+    /// @brief get link between nodes
+    /// @param n1 node 1
+    /// @param n2 node 2
+    /// @param vlink links to search
+    /// @return link. If no link, null link with -ve cost 
+    link_t getLink(
+        cOCell *n1, cOCell *n2,
         const vlink_t &vlink);
 
     cOCell *closestUnvisitedConnected(
@@ -196,6 +206,9 @@ private:
         cOCell * node1,
         cOCell * node2   );
 
+    /// @brief find path starting at a leaf node visiting every node with fewest revisits to the same nodes
+    /// @param leaves 
+    /// @param connectedLeaves 
     void findBestPath(
         std::vector<cOCell *>& leaves,
         vlink_t& connectedLeaves    );
