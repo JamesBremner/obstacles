@@ -199,9 +199,9 @@ private:
         vlink_t &vlink,
         std::vector<cOCell *> &path);
 
-    /// @brief Add connection to path
-    /// @param node1 
-    /// @param node2 
+    /// @brief Add connection to path, marking 2nd node as visited
+    /// @param node1 the current node on path
+    /// @param node2 the destination node where path goes next
     void pathAdd( 
         cOCell * node1,
         cOCell * node2   );

@@ -370,10 +370,7 @@ void cObstacle::tour(
                 // all nodes have been visited
                 return;
             }
-            if (v->ID() == 382)
-            {
-                int ibg = 0;
-            }
+
             // std::cout << " jump path ( " << jump_path[0]->ID() <<" ";
             for (auto k = 1; k < jump_path.size(); k++)
             {
@@ -392,13 +389,20 @@ void cObstacle::pathAdd(
     cOCell *node1,
     cOCell *node2)
 {
+    // add edge to path
     vPath.push_back(std::make_tuple(node1, node2, 0));
+
     if (node2->fvisited)
     {
+        // the destination node has been previously visited
+        // add to vector of revisited nodes
         myNodesRevisited.push_back(node2);
     }
+
+    // mark the destination node as visited
+    // ( the source node will have been marked when the path reached it )
     node2->fvisited = true;
-    // std::cout << node2->ID() << " ";
+
 }
 cOCell *cObstacle::ClosestUnvisited(
     cOCell *startp,
