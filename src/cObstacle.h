@@ -97,6 +97,8 @@ public:
     /// @brief construct nodes to be visited
     void unobstructedPoints();
 
+    void inputGraph();
+
     /// @brief connect nodes, avoiding obstacles
     void connect();
 

@@ -5,6 +5,7 @@
 #include "cxy.h"
 #include <autocell.h>
 #include "cObstacle.h"
+#include "cGraphData.h"
 
 void read(
     cObstacle &obs,
@@ -132,6 +133,45 @@ void cObstacle::connect()
         }
 }
 
+void cObstacle::inputGraph()
+{
+    cGraphData g;
+
+    // loop over node pairs
+    for (auto n1 : vN)
+        for (auto n2 : vN)
+        {
+            // do not self connect
+            if (n1 == n2)
+                continue;
+
+            // do not connect nodes that are not neighbours
+            int w1, h1, w2, h2;
+            A->coords(w1, h1, n1);
+            A->coords(w2, h2, n2);
+            int dx = w1 - w2;
+            int dy = h1 - h2;
+            int d2 = dx * dx + dy * dy;
+            if (d2 > 50)
+                continue;
+
+            // check for blocked
+            if (isBlocked(w1, h1, w2, h2))
+                continue;
+
+            // OK to connect
+            g.findorAdd(
+                std::to_string(n1->ID()),
+                std::to_string(n2->ID()),
+                std::to_string(d2));
+        }
+    std::ofstream ofs("../data/obstacle_graph.txt");
+    if( ! ofs.is_open() )
+        throw std::runtime_error("Cannot open input grapg file");
+    ofs << "format tour\n";
+    ofs << g.text();
+}
+
 double cObstacle::linkCost(link_t &l) const
 {
     int w, h;
@@ -172,8 +212,8 @@ std::vector<cOCell *> cObstacle::adjacent(
 }
 
 link_t cObstacle::getLink(
-cOCell *n1, cOCell *n2,
-const vlink_t &vLink)
+    cOCell *n1, cOCell *n2,
+    const vlink_t &vLink)
 {
     for (auto &l : vLink)
     {
@@ -402,7 +442,6 @@ void cObstacle::pathAdd(
     // mark the destination node as visited
     // ( the source node will have been marked when the path reached it )
     node2->fvisited = true;
-
 }
 cOCell *cObstacle::ClosestUnvisited(
     cOCell *startp,

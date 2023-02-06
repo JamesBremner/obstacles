@@ -38,6 +38,7 @@ void cGUI::ConstructMenu()
                          myfname = fb.open();
                          read(myObstacle, myfname);
                          myObstacle.unobstructedPoints();
+                         myObstacle.inputGraph();
                          myObstacle.connect();
                          myObstacle.tourSpanningTree();
                          fm.update();
